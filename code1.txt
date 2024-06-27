@@ -1,0 +1,241 @@
+Sure, let's provide the complete React code for integrating with the Flask server and explain how to handle user login along with some sample user data.
+
+### Flask Backend
+
+First, make sure you have the Flask backend running with the provided `server.py` script. The backend will handle user login and real-time communication using Flask-SocketIO.
+
+### Complete React Code
+
+1. **Install Dependencies**:
+   Ensure you have the necessary dependencies installed in your React project.
+   ```sh
+   npm install axios socket.io-client react-router-dom
+   ```
+
+2. **React Components**:
+   Here are the complete React components including `Login.js`, `Chat.js`, and `App.js`.
+
+#### `Login.js`
+
+This component handles user login.
+
+```jsx
+import React, { useState } from 'react';
+import { useHistory } from 'react-router-dom';
+import axios from 'axios';
+
+const Login = ({ setUser }) => {
+  const [userId, setUserId] = useState('');
+  const [userType, setUserType] = useState('mentee');
+  const history = useHistory();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const user = { userId, userType };
+    try {
+      await axios.post('http://localhost:5000/login', user);
+      setUser(user);
+      history.push('/chat');
+    } catch (error) {
+      console.error("Login failed", error);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input 
+        type="text" 
+        placeholder="User ID" 
+        value={userId} 
+        onChange={(e) => setUserId(e.target.value)} 
+        required 
+      />
+      <select value={userType} onChange={(e) => setUserType(e.target.value)}>
+        <option value="mentee">Mentee</option>
+        <option value="mentor">Mentor</option>
+      </select>
+      <button type="submit">Login</button>
+    </form>
+  );
+};
+
+export default Login;
+```
+
+#### `Chat.js`
+
+This component handles the chat functionality.
+
+```jsx
+import React, { useState, useEffect } from 'react';
+import io from 'socket.io-client';
+
+const socket = io('http://localhost:5000');
+
+const Chat = ({ user }) => {
+  const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [selectedMentor, setSelectedMentor] = useState(null);
+
+  useEffect(() => {
+    if (user) {
+      socket.emit('join', user);
+    }
+
+    socket.on('private_message', (data) => {
+      setMessages((prevMessages) => [...prevMessages, data]);
+    });
+
+    return () => {
+      socket.off('private_message');
+    };
+  }, [user]);
+
+  const sendMessage = () => {
+    const data = {
+      from: user.userId,
+      to: selectedMentor,
+      message,
+    };
+    socket.emit('private_message', data);
+    setMessages((prevMessages) => [...prevMessages, data]);
+    setMessage('');
+  };
+
+  return (
+    <div>
+      <h2>Chat</h2>
+      {user.userType === 'mentee' && (
+        <div>
+          <h3>Select a Mentor</h3>
+          <button onClick={() => setSelectedMentor('mentor1')}>Mentor 1</button>
+          <button onClick={() => setSelectedMentor('mentor2')}>Mentor 2</button>
+        </div>
+      )}
+      {selectedMentor && (
+        <div>
+          <div>
+            {messages.map((msg, index) => (
+              <div key={index}>
+                <strong>{msg.from}: </strong>{msg.message}
+              </div>
+            ))}
+          </div>
+          <input 
+            type="text" 
+            value={message} 
+            onChange={(e) => setMessage(e.target.value)} 
+          />
+          <button onClick={sendMessage}>Send</button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Chat;
+```
+
+#### `App.js`
+
+This is the main application component that manages routing and user state.
+
+```jsx
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
+import Login from './Login';
+import Chat from './Chat';
+
+const App = () => {
+  const [user, setUser] = useState(null);
+
+  return (
+    <Router>
+      <Switch>
+        <Route path="/chat">
+          <Chat user={user} />
+        </Route>
+        <Route path="/">
+          <Login setUser={setUser} />
+        </Route>
+      </Switch>
+    </Router>
+  );
+};
+
+export default App;
+```
+
+### Sample User Data
+
+You can simulate the list of mentors in the `Chat.js` component. Here's how you can add a few sample mentors for mentees to choose from:
+
+```jsx
+const sampleMentors = [
+  { userId: 'mentor1', userType: 'mentor' },
+  { userId: 'mentor2', userType: 'mentor' },
+];
+
+return (
+  <div>
+    <h2>Chat</h2>
+    {user.userType === 'mentee' && (
+      <div>
+        <h3>Select a Mentor</h3>
+        {sampleMentors.map((mentor) => (
+          <button key={mentor.userId} onClick={() => setSelectedMentor(mentor.userId)}>
+            {mentor.userId}
+          </button>
+        ))}
+      </div>
+    )}
+    {selectedMentor && (
+      <div>
+        <div>
+          {messages.map((msg, index) => (
+            <div key={index}>
+              <strong>{msg.from}: </strong>{msg.message}
+            </div>
+          ))}
+        </div>
+        <input 
+          type="text" 
+          value={message} 
+          onChange={(e) => setMessage(e.target.value)} 
+        />
+        <button onClick={sendMessage}>Send</button>
+      </div>
+    )}
+  </div>
+);
+```
+
+### How to Login Users
+
+1. **Mentee Login**:
+   - Enter a user ID (e.g., "mentee1").
+   - Select "Mentee" from the dropdown.
+   - Click "Login".
+
+2. **Mentor Login**:
+   - Enter a user ID (e.g., "mentor1").
+   - Select "Mentor" from the dropdown.
+   - Click "Login".
+
+The backend Flask server will store the user ID and type. When a user logs in, they are added to the `users` dictionary and assigned a session ID for communication via Socket.IO.
+
+### Running the Application
+
+1. **Start Flask Server**:
+   Run the Flask server to handle API requests and Socket.IO events.
+   ```sh
+   python server.py
+   ```
+
+2. **Start React Application**:
+   Run the React application to provide the frontend interface.
+   ```sh
+   npm start
+   ```
+
+Navigate to `http://localhost:3000` to see the login page. After logging in, mentees can select a mentor to start chatting. The chat component will handle real-time messaging between users.

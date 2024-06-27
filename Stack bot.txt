@@ -1,8 +1,22 @@
-Sure, let's break down the code and explain how it all works.
+Sure, we can replace the Node.js backend with a Flask backend. Here’s how you can do it:
 
-### Flask Backend
+### 1. Set Up the Flask Application
 
-#### Dependencies and Initialization
+First, create a new Flask project and set up Socket.io with Flask.
+
+#### Install Dependencies
+
+Create a virtual environment and install necessary packages:
+
+```sh
+python -m venv venv
+source venv/bin/activate
+pip install flask flask-socketio
+```
+
+#### Create the Flask Server
+
+Create a file named `server.py`:
 
 ```python
 from flask import Flask, request, jsonify
@@ -11,38 +25,15 @@ from flask_socketio import SocketIO, join_room, leave_room, send, emit
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, cors_allowed_origins="*")
-```
 
-- **Flask**: A lightweight web framework for Python.
-- **Flask-SocketIO**: Adds Socket.IO support to Flask applications.
-- **CORS**: Configured to allow all origins for simplicity.
-
-#### In-Memory Storage for Users
-
-```python
 users = {}
-```
 
-- A dictionary to keep track of connected users and their session IDs.
-
-#### Login Route
-
-```python
 @app.route('/login', methods=['POST'])
 def login():
     user = request.json
     users[user['userId']] = user['userType']
     return jsonify({"message": "User logged in successfully"}), 200
-```
 
-- **POST /login**: Accepts a JSON payload with `userId` and `userType` (either "mentee" or "mentor").
-- Stores the user's ID and type in the `users` dictionary.
-
-#### Socket.IO Events
-
-**User Joins**
-
-```python
 @socketio.on('join')
 def on_join(data):
     user_id = data['userId']
@@ -50,28 +41,13 @@ def on_join(data):
     join_room(room)
     users[user_id] = request.sid
     print(f"{user_id} joined with session ID {request.sid}")
-```
 
-- **join**: Handles when a user joins a chat.
-- `join_room(room)`: Joins a unique room named after the user ID for private messaging.
-- Stores the user's session ID (`request.sid`) to identify them later.
-
-**Private Messaging**
-
-```python
 @socketio.on('private_message')
 def handle_private_message(data):
     recipient_sid = users.get(data['to'])
-    if (recipient_sid):
+    if recipient_sid:
         emit('private_message', data, room=recipient_sid)
-```
 
-- **private_message**: Handles private messages between users.
-- Looks up the recipient's session ID and emits the message to that user.
-
-**User Disconnects**
-
-```python
 @socketio.on('disconnect')
 def on_disconnect():
     user_id = None
@@ -82,23 +58,22 @@ def on_disconnect():
     if user_id:
         del users[user_id]
     print(f"{user_id} disconnected")
+
+if __name__ == '__main__':
+    socketio.run(app, host='0.0.0.0', port=5000)
 ```
 
-- **disconnect**: Handles user disconnections.
-- Finds and removes the user from the `users` dictionary when they disconnect.
+### 2. Modify the React Application
 
-### React Frontend
+Update the React application to interact with the Flask backend.
 
-#### Dependencies
+#### Install Dependencies
 
 ```sh
-npm install axios socket.io-client
+npm install axios
 ```
 
-- **axios**: For making HTTP requests.
-- **socket.io-client**: For Socket.IO communication.
-
-#### Login Component
+#### Update `Login.js` and `Chat.js`
 
 `Login.js`:
 
@@ -134,12 +109,6 @@ const Login = ({ setUser }) => {
 
 export default Login;
 ```
-
-- **Login Component**: A form that collects `userId` and `userType`.
-- On form submission, it sends a POST request to the Flask server to log in the user and stores the user info in the parent component state using `setUser`.
-- Redirects the user to the chat page on successful login.
-
-#### Chat Component
 
 `Chat.js`:
 
@@ -209,49 +178,20 @@ const Chat = ({ user }) => {
 export default Chat;
 ```
 
-- **Chat Component**: Manages the chat interface and communication.
-- **Socket.IO Client**: Connects to the Flask server.
-- When the component mounts, it emits a `join` event to the server.
-- Listens for `private_message` events from the server and updates the chat messages.
-- Displays a list of mentors (for mentees to choose from) and handles message sending.
+### 3. Run the Application
 
-#### Main Application Component
+Start the Flask server:
 
-`App.js`:
-
-```jsx
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
-import Login from './Login';
-import Chat from './Chat';
-
-const App = () => {
-  const [user, setUser] = useState(null);
-
-  return (
-    <Router>
-      <Switch>
-        <Route path="/chat">
-          <Chat user={user} />
-        </Route>
-        <Route path="/">
-          <Login setUser={setUser} />
-        </Route>
-      </Switch>
-    </Router>
-  );
-};
-
-export default App;
+```sh
+python server.py
 ```
 
-- **App Component**: Manages routes and user state.
-- Uses React Router to switch between the login page and the chat page.
-- Passes `setUser` to the `Login` component and `user` to the `Chat` component.
+Start the React application:
 
-### Running the Application
+```sh
+npm start
+```
 
-- **Flask Server**: Run the server using `python server.py`.
-- **React Application**: Start the React app using `npm start`.
+Navigate to `http://localhost:3000` to see the login page. After logging in as a mentee, select a mentor to start chatting. If you log in as a mentor, you can receive and send messages from the mentees.
 
-This setup provides a basic but functional chat application where users can log in, select a mentor (if they are a mentee), and engage in private chats with Socket.IO handling real-time messaging.
+This setup provides a simple one-on-one chat application with React and Flask using Socket.io. For a production-ready application, consider adding more robust user authentication, chat history, and UI enhancements.

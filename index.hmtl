@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body { font-family: 'Arial', sans-serif; background-color: #f4f4f9; }
+        #chat-container {
+            max-width: 600px; 
+            margin: 50px auto; 
+            padding: 20px; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            background-color: #ffffff; 
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        #username-input, #message-input {
+            width: 100%; 
+            padding: 10px; 
+            margin-bottom: 10px; 
+            border: 1px solid #ccc; 
+            border-radius: 4px;
+            box-sizing: border-box; 
+            font-size: 16px;
+        }
+        #messages {
+            list-style-type: none; 
+            padding: 0; 
+            margin: 0 0 10px 0; 
+            max-height: 400px; 
+            overflow-y: auto;
+        }
+        #messages li {
+            padding: 10px; 
+            margin-bottom: 10px; 
+            border-radius: 4px; 
+            background-color: #f1f1f1;
+            border: 1px solid #ccc;
+        }
+        .message-user1 {
+            background-color: #e1f7d5; /* Light green background for user 1 */
+        }
+        .message-user2 {
+            background-color: #ffecb3; /* Light yellow background for user 2 */
+        }
+        .correct-answer-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <input id="username-input" autocomplete="off" placeholder="Enter your username">
+        <ul id="messages"></ul>
+        <input id="message-input" autocomplete="off" placeholder="Please Enter Your Query Here">
+    </div>
+    <script>
+
+
+        $(document).ready(function(){
+            var mentors = ["Aravind","Santosh","Chaandu"]
+            var socket = io();
+            var username;
+            var isSecondUser = false;
+
+            $('#username-input').keypress(function(e) {
+                if (e.which == 13 && $(this).val().trim() !== "") {
+                    username = $(this).val();
+                    $(this).prop('disabled', true);
+                    $('#message-input').focus();
+                    socket.emit('new_user', username); // Notify server of new user
+                }
+            });
+
+            $('#message-input').keypress(function(e) {
+                if (e.which == 13 && $(this).val().trim() !== "" && username) {
+                    var message = $(this).val();
+                    console.log('Sending message: ' + message);
+                    socket.send({username: username, message: message});
+                    $(this).val('').focus();
+                }
+            });
+
+            socket.on('message', function(data) {
+                console.log('Received message: ' + data.message);
+                var messageClass = data.username === username ? 'message-user1' : 'message-user2';
+                var $li = $('<li>').addClass(messageClass).text(data.username + ': ' + data.message);
+
+                // Only messages from the second user should have the "Select as Correct" button
+                console.log(data.username)
+                if (mentors.includes(data.username) && messageClass === 'message-user2') {
+                    var $button = $('<button>').addClass('correct-answer-button').text('Select as Correct');
+                    $button.click(function() {
+                        selectCorrectAnswer(data);
+                    });
+                    $li.append($button);
+                }
+
+                $('#messages').append($li);
+            });
+
+            function selectCorrectAnswer(data) {
+                // Example function to handle selecting correct answer
+                console.log('Selected as correct:', data);
+                // Here you can implement logic to mark the answer as correct in the backend
+                // and update UI as needed
+            }
+
+            socket.on('update_users', function(data) {
+                if (data.length === 2 && data[1] === username) {
+                    isSecondUser = true;
+                }
+            });
+
+            // Debugging statements
+            console.log('Document ready. Username input should be active.');
+
+            function selectCorrectAnswer(data) {
+                $.ajax({
+                    url: '/correct-answer',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({username: data.username, message: data.message}),
+                    success: function(response) {
+                        console.log('Correct answer selected and updated in DB.');
+                        // Optionally, update UI or handle response
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

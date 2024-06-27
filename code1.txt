@@ -239,3 +239,81 @@ The backend Flask server will store the user ID and type. When a user logs in, t
    ```
 
 Navigate to `http://localhost:3000` to see the login page. After logging in, mentees can select a mentor to start chatting. The chat component will handle real-time messaging between users.
+
+
+
+import React, { useState, useEffect } from 'react';
+import io from 'socket.io-client';
+
+const socket = io('http://localhost:5000');
+
+const Chat = ({ user }) => {
+  const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [selectedMentor, setSelectedMentor] = useState(null);
+
+  const sampleMentors = [
+    { userId: 'mentor1', userType: 'mentor' },
+    { userId: 'mentor2', userType: 'mentor' },
+  ];
+
+  useEffect(() => {
+    if (user) {
+      socket.emit('join', user);
+    }
+
+    socket.on('private_message', (data) => {
+      setMessages((prevMessages) => [...prevMessages, data]);
+    });
+
+    return () => {
+      socket.off('private_message');
+    };
+  }, [user]);
+
+  const sendMessage = () => {
+    const data = {
+      from: user.userId,
+      to: selectedMentor,
+      message,
+    };
+    socket.emit('private_message', data);
+    setMessages((prevMessages) => [...prevMessages, data]);
+    setMessage('');
+  };
+
+  return (
+    <div>
+      <h2>Chat</h2>
+      {user.userType === 'mentee' && (
+        <div>
+          <h3>Select a Mentor</h3>
+          {sampleMentors.map((mentor) => (
+            <button key={mentor.userId} onClick={() => setSelectedMentor(mentor.userId)}>
+              {mentor.userId}
+            </button>
+          ))}
+        </div>
+      )}
+      {selectedMentor && (
+        <div>
+          <div>
+            {messages.map((msg, index) => (
+              <div key={index}>
+                <strong>{msg.from}: </strong>{msg.message}
+              </div>
+            ))}
+          </div>
+          <input 
+            type="text" 
+            value={message} 
+            onChange={(e) => setMessage(e.target.value)} 
+          />
+          <button onClick={sendMessage}>Send</button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Chat;
